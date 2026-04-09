@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/BioimageAnalysisCoreWEHI/prepare_celltune_features/main/nextflow_schema.json",
+  "title": "prepare_celltune_features pipeline parameters",
+  "description": "Extract cell measurements from QuPath geojson.gz files and format for CellTune import",
+  "type": "object",
+  "$defs": {
+    "input_output_options": {
+      "title": "Input/output options",
+      "type": "object",
+      "required": ["geojson_dir", "pixel_size", "outdir"],
+      "properties": {
+        "geojson_dir": {
+          "type": "string",
+          "format": "directory-path",
+          "exists": true,
+          "description": "Directory containing *.geojson.gz files from QuPath cell measurements"
+        },
+        "pixel_size": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Pixel size in µm/pixel for centroid conversion (e.g. 0.3906 for MIBI, 0.4 for COMET)"
+        },
+        "cofactor": {
+          "type": "number",
+          "default": 100,
+          "exclusiveMinimum": 0,
+          "description": "Cofactor for arcsinh normalization. 100 for MIBI/IMC, 0.1 for fluorescence (CODEX/COMET)"
+        },
+        "skip_arcsinh": {
+          "type": "boolean",
+          "default": false,
+          "description": "Skip arcsinh normalization and output raw measurements"
+        },
+        "mask_suffix": {
+          "type": "string",
+          "default": "_mask.tiff",
+          "description": "Suffix of mask files to rename to _segmentation_labels.tif for CellTune"
+        },
+        "output": {
+          "type": "string",
+          "default": "celltune_features.parquet",
+          "description": "Output parquet file name"
+        },
+        "outdir": {
+          "type": "string",
+          "format": "directory-path",
+          "description": "Output directory for published files"
+        },
+        "publish_dir_mode": {
+          "type": "string",
+          "default": "copy",
+          "description": "Method used by Nextflow publishDir",
+          "enum": ["symlink", "rellink", "link", "copy", "copyNoFollow", "move"]
+        }
+      }
+    },
+    "generic_options": {
+      "title": "Generic options",
+      "type": "object",
+      "properties": {
+        "validate_params": {
+          "type": "boolean",
+          "default": true,
+          "hidden": true,
+          "description": "Validate parameters against schema"
+        }
+      }
+    }
+  },
+  "allOf": [
+    { "$ref": "#/$defs/input_output_options" },
+    { "$ref": "#/$defs/generic_options" }
+  ]
+}

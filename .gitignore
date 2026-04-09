@@ -1,0 +1,15 @@
+# Nextflow runtime metadata
+.nextflow/
+.nextflow.log*
+
+# Nextflow work directories
+work/
+
+# Nextflow reports
+trace*.txt
+timeline*.html
+report*.html
+dag*.html
+
+# Pipeline published outputs (default outdir)
+results/
