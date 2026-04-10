@@ -98,6 +98,7 @@ def main():
     cells_cx = []
     cells_cy = []
     cells_meas = []
+    cells_id = []
 
     for feat in data["features"]:
         props = feat["properties"]
@@ -117,6 +118,7 @@ def main():
         cells_cx.append(gy * args.pixel_size)
         cells_cy.append(gx * args.pixel_size)
         cells_meas.append(props.get("measurements", {}))
+        cells_id.append(int(props.get("id", 0)))
 
     del data
     ncells = len(cells_cx)
@@ -149,8 +151,9 @@ def main():
     # Assemble columns in CellTune order
     columns = {
         "fov": [image_name] * ncells,
-        "cellID": np.arange(1, ncells + 1, dtype=np.int32),
+        "cellID": np.array(cells_id, dtype=np.uint16),
     }
+    del cells_id
 
     # Rename and add measurement columns
     renamed = {}
