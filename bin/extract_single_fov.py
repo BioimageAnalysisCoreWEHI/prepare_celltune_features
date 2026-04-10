@@ -86,7 +86,7 @@ def main():
 
     t0 = time.time()
     fname = os.path.basename(args.geojson)
-    image_name = fname.replace(".geojson.gz", ".tiff")
+    image_name = fname.replace(".geojson.gz", "")
 
     print(f"Processing {fname}...")
     sys.stdout.flush()

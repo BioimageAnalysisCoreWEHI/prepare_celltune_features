@@ -101,7 +101,7 @@ def main():
     t0 = time.time()
     for i, filepath in enumerate(geojson_files):
         fname = os.path.basename(filepath)
-        image_name = fname.replace(".geojson.gz", ".tiff")
+        image_name = fname.replace(".geojson.gz", "")
 
         with gzip.open(filepath, "rt") as f:
             data = json.load(f)
