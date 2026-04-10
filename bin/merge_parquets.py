@@ -4,10 +4,16 @@
 Handles column alignment across FOVs (fills missing columns with NaN).
 Uses pyarrow concat_tables for efficient zero-copy merging.
 
+Optionally compares against a CellTune cellTable_region_props.parquet to
+identify and remove cells that CellTune cannot use (e.g. edge-clipped cells
+whose polygon produces no pixels when rasterized). Dropped cells are written
+to dropped_cells.csv alongside the merged output.
+
 Usage:
     python merge_parquets.py \
         --input_dir /path/to/parquets \
-        --output merged.parquet
+        --output merged.parquet \
+        [--celltune_cell_table /path/to/cellTable_region_props.parquet]
 """
 
 import argparse
@@ -17,6 +23,7 @@ import sys
 import time
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pandas as pd
 
 
 def main():
@@ -27,6 +34,10 @@ def main():
                         help="Directory containing per-FOV *.parquet files")
     parser.add_argument("--output", required=True,
                         help="Output merged parquet file path")
+    parser.add_argument("--celltune_cell_table", default=None,
+                        help="Optional path to CellTune cellTable_region_props.parquet. "
+                             "Cells absent from the reference are removed and recorded "
+                             "in dropped_cells.csv.")
     args = parser.parse_args()
 
     parquet_files = sorted(glob.glob(os.path.join(args.input_dir, "*.parquet")))
@@ -85,7 +96,42 @@ def main():
     merged = pa.concat_tables(tables)
     del tables
 
-    print(f"Writing {args.output}...")
+    # Optional: compare against CellTune reference and drop unmatched cells
+    if args.celltune_cell_table:
+        print(f"\nComparing against CellTune reference: {args.celltune_cell_table}")
+        sys.stdout.flush()
+        ref = pq.read_table(args.celltune_cell_table, columns=["fov", "cellID"]).to_pandas()
+        merged_pd = merged.to_pandas()
+
+        # Left-join to find which rows have a match in the reference
+        ref["_keep"] = True
+        merged_pd = merged_pd.merge(ref, on=["fov", "cellID"], how="left")
+        keep_mask = merged_pd["_keep"].notna()
+        dropped_pd = merged_pd[~keep_mask].drop(columns=["_keep"])
+        merged_pd = merged_pd[keep_mask].drop(columns=["_keep"])
+
+        if len(dropped_pd) > 0:
+            print(f"  {len(dropped_pd)} cell(s) absent from CellTune reference (edge-clipped):")
+            for _, row in dropped_pd.iterrows():
+                cx = row.get("Centroid_X__Cell__RegionProps", float("nan"))
+                cy = row.get("Centroid_Y__Cell__RegionProps", float("nan"))
+                print(f"    {row['fov']}  cellID={row['cellID']}  centroid=({cx:.2f}, {cy:.2f}) µm")
+
+            dropped_out = dropped_pd[
+                ["fov", "cellID",
+                 "Centroid_X__Cell__RegionProps",
+                 "Centroid_Y__Cell__RegionProps"]
+            ].copy()
+            dropped_out.columns = ["fov", "cellID", "centroid_x_um", "centroid_y_um"]
+            dropped_out.to_csv("dropped_cells.csv", index=False)
+            print(f"  Written to dropped_cells.csv")
+        else:
+            print(f"  All {len(merged_pd)} cells match reference - no filtering needed")
+
+        merged = pa.Table.from_pandas(merged_pd, preserve_index=False)
+        sys.stdout.flush()
+
+    print(f"\nWriting {args.output}...")
     sys.stdout.flush()
     pq.write_table(merged, args.output)
 

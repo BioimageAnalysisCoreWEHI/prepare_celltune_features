@@ -42,6 +42,12 @@
           "default": "celltune_features.parquet",
           "description": "Output parquet file name"
         },
+        "celltune_cell_table": {
+          "type": "string",
+          "format": "file-path",
+          "exists": true,
+          "description": "Optional path to CellTune cellTable_region_props.parquet. When provided, cells absent from the reference are removed from the output and recorded in dropped_cells.csv."
+        },
         "outdir": {
           "type": "string",
           "format": "directory-path",

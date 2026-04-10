@@ -29,20 +29,25 @@ process MERGE_PARQUETS {
 
     conda "${projectDir}/bin/environment.yml"
 
+    publishDir "${params.outdir}", mode: params.publish_dir_mode, pattern: "dropped_cells.csv"
+
     input:
-    tuple path('parquets/*'), path(script_file)
+    tuple path('parquets/*'), val(celltune_cell_table), path(script_file)
 
     output:
     path 'merged.parquet', emit: parquet
     path 'merge.log', emit: log
+    path 'dropped_cells.csv', emit: dropped, optional: true
 
     script:
+    def cell_table_arg = celltune_cell_table ? "--celltune_cell_table \"${celltune_cell_table}\"" : ""
     """
     set -euo pipefail
 
     python "${script_file}" \
         --input_dir parquets \
         --output merged.parquet \
+        ${cell_table_arg} \
         2>&1 | tee merge.log
     """
 }
@@ -175,7 +180,7 @@ workflow {
     MERGE_PARQUETS(
         EXTRACT_SINGLE_FOV.out.parquet
             .collect()
-            .map { parquets -> tuple(parquets, mergeScript) }
+            .map { parquets -> tuple(parquets, params.celltune_cell_table ?: "", mergeScript) }
     )
 
     if (params.skip_arcsinh) {
