@@ -30,12 +30,16 @@ The output parquet follows the CellTune `(fov, cellID)` import format:
 
 ## Optional parameters
 
-- `--cofactor` — Arcsinh cofactor (default: `100`).
-- `--skip_arcsinh` — Skip normalization, output raw measurements (default: `false`).
-- `--mask_suffix` — Suffix of mask files to rename (default: `_mask.tiff`).
-- `--output` — Output filename (default: `celltune_features.parquet`).
-- `--outdir` — Published output directory (default: `results`).
-- `--publish_dir_mode` — Nextflow publish mode (default: `copy`).
+- `--cofactor` — Arcsinh cofactor for normalization (default: `100`). Use `0.1` for fluorescence (CODEX/COMET), `100` for mass-based imaging (MIBI/IMC).
+- `--skip_arcsinh` — If specified, skips arcsinh normalization and outputs raw measurements (default: `false`).
+- `--mask_suffix` — Suffix of mask files to rename to CellTune format (default: `_mask.tiff`).
+- `--output` — Output parquet file name (default: `celltune_features.parquet`).
+- `--outdir` — Output directory for published files (default: `results`).
+- `--publish_dir_mode` — Method used by Nextflow publishDir (default: `copy`). Options: `symlink`, `rellink`, `link`, `copy`, `copyNoFollow`, `move`.
+- `--celltune_cell_table` — Optional path to a CellTune `cellTable_region_props.parquet` file. If provided, only cells present in this table are retained; dropped cells are recorded in `dropped_cells.csv`.
+- `--validate_params` — Validate parameters against the schema (default: `true`).
+- `--help` — Show help and exit.
+- `--version` — Show pipeline version and exit.
 
 ## Usage
 
@@ -77,8 +81,38 @@ nextflow run main.nf \
 
 ## Outputs
 
-- `celltune_features.parquet` (or filename passed via `--output`)
-- `segmentation_labels/` — directory with renamed mask files (`*_segmentation_labels.tif`)
-- `extract_measurements.log`
-- `arcsinh_normalize.log` (if normalization is not skipped)
-- `rename_masks.log`
+The pipeline produces the following outputs:
+
+- `celltune_features.parquet` (or filename passed via `--output`): Main feature table for CellTune import.
+- `segmentation_labels/` — Directory containing renamed mask files (`*_segmentation_labels.tif`).
+- `extract_measurements.log` — Log from the extraction step.
+- `arcsinh_normalize.log` — Log from normalization (if not skipped).
+- `rename_masks.log` — Log from mask renaming.
+- `dropped_cells.csv` — List of cells dropped if `--celltune_cell_table` is used.
+# Pipeline steps
+
+1. **Extract measurements**: For each `*.geojson.gz` file, extracts per-cell measurements and computes centroids using `extract_geojson_measurements.py`.
+2. **Merge**: Combines all per-FOV parquet files into a single table. If `--celltune_cell_table` is provided, only cells present in the reference are kept.
+3. **Arcsinh normalization**: (unless `--skip_arcsinh` is set) Applies arcsinh transformation to measurement columns.
+4. **Rename masks**: Copies mask files with the specified suffix to CellTune-compatible names in the output directory.
+
+# Parameter details
+
+| Parameter              | Required | Default                   | Description |
+|------------------------|----------|---------------------------|-------------|
+| `--geojson_dir`        | Yes      | —                         | Directory containing `*.geojson.gz` files |
+| `--pixel_size`         | Yes      | —                         | Pixel size in µm/pixel |
+| `--cofactor`           | No       | `100`                     | Arcsinh cofactor |
+| `--skip_arcsinh`       | No       | `false`                   | Skip normalization |
+| `--mask_suffix`        | No       | `_mask.tiff`              | Mask file suffix |
+| `--output`             | No       | `celltune_features.parquet` | Output parquet filename |
+| `--outdir`             | No       | `results`                 | Output directory |
+| `--publish_dir_mode`   | No       | `copy`                    | Nextflow publish mode |
+| `--celltune_cell_table`| No       | —                         | Reference cell table for filtering |
+| `--validate_params`    | No       | `true`                    | Validate parameters against schema |
+| `--help`               | No       | —                         | Show help and exit |
+| `--version`            | No       | —                         | Show pipeline version and exit |
+
+# Example commands
+
+See above for local and HPC usage examples. For full parameter documentation, see `nextflow_schema.json`.
